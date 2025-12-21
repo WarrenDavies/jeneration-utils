@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Any
 
-from imagejenerator.jenerationrecord.base_generation_record import BaseGenerationRecord
-from imagejenerator.jenerationrecord.registry import register
+from jenerationutils.jenerationrecord.base_generation_record import BaseGenerationRecord
+from jenerationutils.jenerationrecord.registry import register
 
 @dataclass()
 @register("csv")
@@ -43,4 +43,3 @@ class CSVGenerationRecord(BaseGenerationRecord):
             List[str]: A list of column names.
         """
         return list(self.schema.model_fields.keys())
-

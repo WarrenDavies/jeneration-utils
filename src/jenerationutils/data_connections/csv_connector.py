@@ -2,8 +2,8 @@ import csv
 import os
 from typing import List, Any
 
-from imagejenerator.data_connections.base_connector import BaseConnector
-from imagejenerator.data_connections.registry import register
+from jenerationutils.data_connections.base_connector import BaseConnector
+from jenerationutils.data_connections.registry import register
 
 @register("csv")
 class CSVConnector(BaseConnector):
