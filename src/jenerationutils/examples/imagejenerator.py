@@ -1,26 +1,3 @@
-# jeneration-utils
-
-A modular collection of utils designed to streamline the benchmarking, validation, and storage of GenAI inference metadata.
-
-## Overview
-
-This suite provides a decoupled pipeline for managing GenAI experiments with three packages:
-
-1.  **Benchmarker**: Captures performance metrics (execution time, throughput).
-2.  **Metadata Record**: Validates data using Pydantic and serializes it for storage.
-3.  **Data Connections**: Handles the physical writing of data to various backends (CSV, and soon SQLite).
-
-Each contains its own detailed README with full API documentation.
-
-## Installation
-
-    pip install jenerationutils
-
-## Quick Start: A Complete Pipeline
-
-Here is how the three packages work in harmony to log a Stable Diffusion pipline generated with imagejenerator:
-
-```py
 import datetime
 import copy
 
@@ -113,16 +90,3 @@ csv_connector.create_new_data_source(image_generation_records[0].create_header_r
 for image_generation_record in image_generation_records:
     data_row = image_generation_record.create_data_row()
     csv_connector.append_data(data_row)
-```
-
-## Project Structure
-
-* **jenerationutils/benchmarker**: Timing and throughput utilities.
-* **jenerationutils/metadata_record**: Pydantic-based validation and serialization.
-* **jenerationutils/data_connections**: Storage adapters (CSV, SQLite).
-
-Each sub-package contains its own detailed README with full API documentation.
-
-## License
-
-MIT
