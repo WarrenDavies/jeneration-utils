@@ -18,70 +18,15 @@ class StorageManager():
         self.artifacts = []
         self.save_timestamp = ""
         self.filenames = []
-        self.pydantic_to_sql_map = {
-            int: "INTEGER",
-            str: "TEXT",
-            float: "REAL",
-            bool: "BOOLEAN",
-            datetime: "TIMESTAMP",
-        }
-        self.db_path = self.core_config["data_connection"]["data_source_location"]
-        self.db_conn = None
-        self.data_connections = {}
-        self.create_connections()
-        self.ensure_db_exists()
+        self.data_connection = self.create_connection()
+        self.data_connection.ensure_db_exists(self.schema_registry)
 
 
-    def generate_create_table_query(self, table_name, schema):
-        cols = []
-        for name, field in schema.model_fields.items():
-            py_type = field.annotation
-            sql_type = self.pydantic_to_sql_map.get(py_type, "TEXT")
-
-            col = f"{name} {sql_type}"
-            if field.is_required():
-                col += " NOT NULL"
-
-            cols.append(col)
-
-        qry = f"""CREATE TABLE IF NOT EXISTS {table_name} (
-            {", ".join(cols)}
-        );
-        """
-
-        return qry
-
-        
-    def create_tables_from_schema(self):
-        cursor = self.db_conn.cursor()
-        for table_name, schema in self.schema_registry.items():
-            qry = self.generate_create_table_query(table_name, schema)
-            cursor.execute(qry)
-        self.db_conn.close()
-
-
-    def create_db(self):
-        conn = sqlite3.connect(self.db_path)
-        return conn
-
-
-    def db_exists(self):
-        return Path(self.db_path).exists()
-
-
-    def ensure_db_exists(self):      
-        if self.db_exists():
-            self.db_conn = sqlite3.connect(self.db_path)
-            return
-        self.db_conn = self.create_db()
-        self.create_tables_from_schema()
-
-
-    def create_data_connection(self, connection_config):
-        connection_name = connection_config["name"]
-        self.data_connections[connection_name] = (
-            data_connections_registry.get_object(connection_config["data_source"])
+    def create_connection(self):
+        ConnectionClass = data_connections_registry.get_class(
+            self.core_config["data_connection"]["output_data_type"]
         )
+        return ConnectionClass(self.core_config["data_connection"])
 
 
     def create_connections(self):

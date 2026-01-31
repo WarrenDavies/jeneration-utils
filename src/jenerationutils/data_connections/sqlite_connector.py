@@ -1,7 +1,8 @@
 import sqlite3
 import os
-from typing import List, Any
+from typing import List, Any, Dict
 from pathlib import Path
+import datetime
 
 import pandas as pd
 
@@ -24,6 +25,61 @@ class SQLiteConnector(BaseConnector):
                            is the file path to the database.
         """
         super().__init__(config)
+        self.pydantic_to_sql_map = {
+            int: "INTEGER",
+            str: "TEXT",
+            float: "REAL",
+            bool: "BOOLEAN",
+            datetime: "TIMESTAMP",
+        }
+        self.config = config
+        self.db_path = self.config["data_source_location"]
+        self.db_conn = None
+
+
+    def generate_create_table_query(self, table_name, schema):
+        cols = []
+        for name, field in schema.model_fields.items():
+            py_type = field.annotation
+            sql_type = self.pydantic_to_sql_map.get(py_type, "TEXT")
+
+            col = f"{name} {sql_type}"
+            if field.is_required():
+                col += " NOT NULL"
+
+            cols.append(col)
+
+        qry = f"""CREATE TABLE IF NOT EXISTS {table_name} (
+            {", ".join(cols)}
+        );
+        """
+
+        return qry
+
+        
+    def create_tables_from_schema(self, schema_registry):
+        with self.db_conn:  # This ensures the connection is properly managed
+            cursor = self.db_conn.cursor()
+            for table_name, schema in schema_registry.items():
+                qry = self.generate_create_table_query(table_name, schema)
+                cursor.execute(qry)
+
+
+    def create_new_data_source(self):
+        conn = sqlite3.connect(self.db_path)
+        return conn
+
+
+    def db_exists(self):
+        return Path(self.db_path).exists()
+
+
+    def ensure_db_exists(self, schema_registry):      
+        if self.db_exists():
+            self.db_conn = sqlite3.connect(self.db_path)
+            return
+        self.db_conn = self.create_new_data_source()
+        self.create_tables_from_schema(schema_registry)
 
 
     def append_data(self, data):
@@ -60,11 +116,17 @@ class SQLiteConnector(BaseConnector):
             writer.writerow(headers)
 
 
-    def close():
+    def close(self, conn = None):
         """
-        Implementation not needed for CSV files.
+        Closes connection to database (i.e. if context manager wasn't used).
         """
-        pass
+        try:
+            if conn:
+                conn.close()
+            elif hasattr(self, 'db_conn') and self.db_conn:
+                self.db_conn.close()
+        except Exception as e:
+            print(f"Error closing connection: {e}")
 
 
     def to_pandas(self):
