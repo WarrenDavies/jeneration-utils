@@ -1,6 +1,9 @@
 import csv
 import os
 from typing import List, Any
+from pathlib import Path
+
+import pandas as pd
 
 from jenerationutils.data_connections.base_connector import BaseConnector
 from jenerationutils.data_connections.registry import register
@@ -69,3 +72,18 @@ class CSVConnector(BaseConnector):
         Implementation not needed for CSV files.
         """
         pass
+
+
+    def to_pandas(self):
+        """
+        Reads the CSV file specified in the config under 'data_source_location'
+        and returns its contents as a Pandas DataFrame.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the data from the CSV file.
+        """
+        path = Path(self.config.get("data_source_location"))
+
+        df = pd.read_csv(path, header=0)
+
+        return df
