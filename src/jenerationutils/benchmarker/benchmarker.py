@@ -21,6 +21,11 @@ class Benchmarker(ContextDecorator):
     def __exit__(self, *exc):
         self.execution_time = time.perf_counter() - self.start_time
 
+    def add_timing(self, artifacts):
+        for artifact in artifacts:
+            artifact.generation_time += self.execution_time
+        return artifacts
+
     @staticmethod
     def measure_execution_time(func: Callable, *args, **kwargs) -> Dict[str, Any]:
         """
