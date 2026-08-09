@@ -49,6 +49,7 @@ class BaseConnector(ABC):
         """
         pass
 
+
     @abstractmethod
     def close(self):
         """Clean up connection/file handler."""
