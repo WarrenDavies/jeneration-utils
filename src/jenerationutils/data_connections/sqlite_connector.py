@@ -3,6 +3,7 @@ import os
 from typing import List, Any, Dict
 from pathlib import Path
 import datetime
+import json
 
 import pandas as pd
 
@@ -57,16 +58,29 @@ class SQLiteConnector(BaseConnector):
         return qry
 
         
-    def create_tables_from_schema(self, schema_registry):
-        with self.db_conn:  # This ensures the connection is properly managed
-            cursor = self.db_conn.cursor()
+    def create_tables_from_schema(self, conn, schema_registry):
+
+        conn = self.get_connection()
+
+        try:
+            cursor = conn.cursor()
+            cursor = conn.cursor()
             for table_name, schema in schema_registry.items():
                 qry = self.generate_create_table_query(table_name, schema)
                 cursor.execute(qry)
+        finally:
+            cursor.close()
+            conn.close()
 
 
     def create_new_data_source(self):
         conn = sqlite3.connect(self.db_path)
+        return conn
+
+
+    def get_connection(self):
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
         return conn
 
 
@@ -76,25 +90,55 @@ class SQLiteConnector(BaseConnector):
 
     def ensure_db_exists(self, schema_registry):      
         if self.db_exists():
-            self.db_conn = sqlite3.connect(self.db_path)
             return
-        self.db_conn = self.create_new_data_source()
         self.create_tables_from_schema(schema_registry)
 
 
-    def append_data(self, data):
+    def _get_data_row(self, model, fields):
+        values = []
+        for field in fields:
+            value = getattr(model, field)
+
+            if isinstance(value, dict):
+                value = json.dumps(value)
+            elif isinstance(value, list):
+                value = json.dumps(value)
+            elif isinstance(value, datetime.datetime):
+                value = value.isoformat()
+
+            values.append(value)
+
+        return values
+
+
+    def append_data(self, table_name, model):
         """
         Appends a row of data to the table indicated in the config.
 
         Args:
-            data (List[Any]): A list of values representing a single row.
-                              Order must match the headers.
-
-        Raises:
-            FileNotFoundError: If the file at 'data_source_location' does not exist.
-            IOError: If there is an issue opening or writing to the file.
+            table (str): Name of the table into which you want to append the data
+            model (BaseModel): Pydantic model containing the record
         """
-        pass
+        fields = list(model.model_fields.keys())
+        placeholders = ", ".join(["?"] * len(fields))
+        columns = ", ".join(fields)
+
+        values = self._get_data_row(model, fields)
+
+        qry = f"""
+        INSERT INTO {table_name} ({columns})
+        VALUES ({placeholders})
+        """
+
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(qry, values)
+            conn.commit()
+        finally:
+            cursor.close()
+            conn.close()
+
 
 
     @staticmethod
@@ -129,16 +173,18 @@ class SQLiteConnector(BaseConnector):
             print(f"Error closing connection: {e}")
 
 
-    def to_pandas(self):
-        """
-        Reads the CSV file specified in the config under 'data_source_location'
-        and returns its contents as a Pandas DataFrame.
+    def execute(self, qry, args = None):
+        if args is None:
+            args = ()
 
-        Returns:
-            pd.DataFrame: DataFrame containing the data from the CSV file.
-        """
-        path = Path(self.config.get("data_source_location"))
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(qry, args)
+            conn.commit()
+            rows = [dict(row) for row in cursor.fetchall()]
+        finally:
+            cursor.close()
+            conn.close()
 
-        df = pd.read_csv(path, header=0)
-
-        return df
+        return rows
