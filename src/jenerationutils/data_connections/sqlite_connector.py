@@ -58,7 +58,7 @@ class SQLiteConnector(BaseConnector):
         return qry
 
         
-    def create_tables_from_schema(self, conn, schema_registry):
+    def create_tables_from_schema(self, schema_registry):
 
         conn = self.get_connection()
 
